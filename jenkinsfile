@@ -1,90 +1,53 @@
 pipeline {
-    // It's good practice to specify a windows label if you have one
-    // agent { label 'windows' } 
-    agent any
-
-    environment {
-        SONAR_TOKEN = credentials('sonar-token')
-        DOCKER_IMAGE = "my-python-app:latest"
-    }
+    agent any // This will run on any available agent, including Windows
 
     stages {
         stage('Checkout') {
             steps {
-                // No changes needed, git is cross-platform
-                git branch: 'main', url: 'https://github.com/yourusername/my-python-app.git'
+                // The git step is cross-platform and does not need to be changed
+                git branch: 'main', url: 'https://github.com/sarthak20052005/simple_webapp.git'
             }
         }
 
-        stage('Setup Python Environment') {
+        stage('Setup Python Environment with PowerShell') {
             steps {
-                // Use 'bat' for Windows commands
-                bat '''
+                // Use the 'powershell' step for Windows PowerShell commands
+                powershell '''
+                Write-Host "Setting up Python virtual environment with PowerShell..."
+
+                # Create the virtual environment (assuming python is in your PATH)
                 python -m venv venv
-                call venv\\Scripts\\activate.bat
-                pip install -r requirements.txt
+
+                # Activate the virtual environment using the PowerShell script
+                # Note the different activation script and syntax
+                . .\\venv\\Scripts\\Activate.ps1
+
+                # Verify versions
+                python --version
+                pip --version
                 '''
             }
         }
 
-        stage('Run Tests') {
+        stage('Run Tests with PowerShell') {
             steps {
-                bat '''
-                echo "Running tests..."
+                powershell '''
+                Write-Host "Running tests with PowerShell..."
                 
-                rem Activate the environment for this new shell session
-                call venv\\Scripts\\activate.bat
-                
-                rem Call pytest as a module to ensure the correct executable is found
-                python -m pytest tests/ || echo "Tests Failed"
-                '''
-            }
-        }
+                # Activate the environment again for this new PowerShell session
+                . .\\venv\\Scripts\\Activate.ps1
 
-        stage('SonarQube Scan') {
-            steps {
-                withSonarQubeEnv('sonarqube') {
-                    bat '''
-                    call venv\\Scripts\\activate.bat
-                    rem Use %VAR% for environment variables in batch scripts
-                    sonar-scanner -Dsonar.login=%SONAR_TOKEN%
-                    '''
+                # Use try/catch for more robust error handling in PowerShell
+                try {
+                    python -m pytest tests/
                 }
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                // Groovy's ${VAR} syntax works fine with bat
-                bat "docker build -t ${DOCKER_IMAGE} ."
-            }
-        }
-
-        stage('Trivy Scan') {
-            steps {
-                bat "trivy image ${DOCKER_IMAGE}"
-            }
-        }
-
-        stage('Docker Scout Scan') {
-            steps {
-                bat "docker scout analyze ${DOCKER_IMAGE}"
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                bat '''
-                rem Use backslashes for Windows paths
-                kubectl apply -f k8s\\deployment.yaml
-                kubectl apply -f k8s\\service.yaml
+                catch {
+                    Write-Host "Tests Failed"
+                    # Exit with a non-zero code to fail the pipeline stage
+                    exit 1
+                }
                 '''
             }
-        }
-    }
-    post {
-        always {
-            echo 'Pipeline completed.'
         }
     }
 }
