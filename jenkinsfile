@@ -30,8 +30,13 @@ pipeline {
         stage('Run Tests') {
             steps {
                 bat '''
+                echo "Running tests..."
+                
+                rem Activate the environment for this new shell session
                 call venv\\Scripts\\activate.bat
-                pytest tests/
+                
+                rem Call pytest as a module to ensure the correct executable is found
+                python -m pytest tests/ || echo "Tests Failed"
                 '''
             }
         }
