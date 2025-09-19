@@ -1,21 +1,27 @@
 pipeline {
+    // It's good practice to specify a windows label if you have one
+    // agent { label 'windows' } 
     agent any
+
     environment {
         SONAR_TOKEN = credentials('sonar-token')
         DOCKER_IMAGE = "my-python-app:latest"
     }
+
     stages {
         stage('Checkout') {
             steps {
+                // No changes needed, git is cross-platform
                 git branch: 'main', url: 'https://github.com/yourusername/my-python-app.git'
             }
         }
 
         stage('Setup Python Environment') {
             steps {
-                sh '''
+                // Use 'bat' for Windows commands
+                bat '''
                 python -m venv venv
-                source venv/bin/activate
+                call venv\\Scripts\\activate.bat
                 pip install -r requirements.txt
                 '''
             }
@@ -23,8 +29,8 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                sh '''
-                source venv/bin/activate
+                bat '''
+                call venv\\Scripts\\activate.bat
                 pytest tests/
                 '''
             }
@@ -33,9 +39,10 @@ pipeline {
         stage('SonarQube Scan') {
             steps {
                 withSonarQubeEnv('sonarqube') {
-                    sh '''
-                    source venv/bin/activate
-                    sonar-scanner -Dsonar.login=$SONAR_TOKEN
+                    bat '''
+                    call venv\\Scripts\\activate.bat
+                    rem Use %VAR% for environment variables in batch scripts
+                    sonar-scanner -Dsonar.login=%SONAR_TOKEN%
                     '''
                 }
             }
@@ -43,29 +50,29 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                script {
-                    sh "docker build -t ${DOCKER_IMAGE} ."
-                }
+                // Groovy's ${VAR} syntax works fine with bat
+                bat "docker build -t ${DOCKER_IMAGE} ."
             }
         }
 
         stage('Trivy Scan') {
             steps {
-                sh "trivy image ${DOCKER_IMAGE}"
+                bat "trivy image ${DOCKER_IMAGE}"
             }
         }
 
         stage('Docker Scout Scan') {
             steps {
-                sh "docker scout analyze ${DOCKER_IMAGE}"
+                bat "docker scout analyze ${DOCKER_IMAGE}"
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh '''
-                kubectl apply -f k8s/deployment.yaml
-                kubectl apply -f k8s/service.yaml
+                bat '''
+                rem Use backslashes for Windows paths
+                kubectl apply -f k8s\\deployment.yaml
+                kubectl apply -f k8s\\service.yaml
                 '''
             }
         }
